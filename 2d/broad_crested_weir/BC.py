@@ -8,17 +8,26 @@ class boundaryConditions:
             exit(1)
 
 
-# Basic boundary conditions
+# Basic functions
     def empty(self):
         return None    
     def constantValue(self,value):
         return lambda x,t: value
     def linear(self,a0,a1,i):
         return lambda x,t: a0 + a1*x[i]
+    def phase(self,k,ww,cos=True):
+        if cos:
+            return lambda x,t: cos(k*x-ww*t)
+        else:
+            return lambda x,t: sin(k*x-ww*t)
+    def hyperPhase(self,k,ww,cosh=True):
+        if cosh:
+            return lambda x,t: cosh(k*x-ww*t)
+        else:
+            return lambda x,t: sinh(k*x-ww*t)
 
 
-
-#Derived boundary conditions
+#Basic boundary conditions
 #NoSlip: U=0
     def freeSlip(self,BCType):
         """Imposes a free slip condition
@@ -50,7 +59,7 @@ class boundaryConditions:
             return self.empty()
 #: U=0
     def twoPhaseVelocityInlet(self,BCType,x,U,seaLevel,b_or,vert_axis=1,air=1.0,water=0.0):
-        """Imposes a velocity profile lower than the sea level and an open boundary for higher than the sealevel
+        """Imposes a velocity profile at the lower phase and an open boundary at the upper face
         Takes the following arguments
         BCType: Type of boundary condition 
         x: Position vector
@@ -135,7 +144,7 @@ class boundaryConditions:
             return self.constantValue(air)        
         else: return self.empty()
                
-
+# Derived boundary conditions
     def hydrostaticPressureOutletWithDepth(self,BCType,x,seaLevel,rhoUp,rhoDown,g,refLevel,b_or,pRef=0.0,vert_axis=1,air=1.0,water=0.0):
         """Imposes a hydrostatic pressure profile and open boundary conditions with a known otuflow depth
         Takes the following arguments
@@ -162,7 +171,7 @@ class boundaryConditions:
         elif BCType is "vofDirichlet" and x[vert_axis]<seaLevel:
             return self.constantValue(water)
         else: return BC
-    def forcedOutlet(self,BCType,x,U,seaLevel,rhoUp,rhoDown,g,refLevel,b_or,pRef=0.0,vert_axis=1,air=1.,water=0.):
+     def forcedOutlet(self,BCType,x,U,seaLevel,rhoUp,rhoDown,g,refLevel,b_or,pRef=0.0,vert_axis=1,air=1.,water=0.):
         """Imposes a known velocit & pressure profile at the outflow
         Takes the following arguments
         BCType: Type of boundary condition 
@@ -186,6 +195,89 @@ class boundaryConditions:
             if BCType is ("uDirichlet" or "vDirichlet" or "wDirichlet" or "vofDirichlet"):
                 return BC2
             else: return BC1
+
+     def regularWaves(self)
+        """This condition is to generate a regular wave at an inlet
+           1st order theory is used by default and FFT wave theory is used if an array of coefficients is provided
+           The conditions is derived from the velocity inlet 
+        """
+        z = x[vert_axis] - seaLevel
+        self.BCTypeCheck(BCType)
+        k = 2*pi/lw
+        kdir = k*wdirection
+        sigma = 2*pi/T
+        phi = sum(kdir * x) - omega*t + phi0
+        Ncoeff = len(Y)
+        if(wdirection[vert_axis]!=0):
+            print("Gravity axis is aligned with a directional wave component. Check input")
+            exit(1)    
+        if(waveType == "linear"):
+            B[0] = 0.5*height*ww
+            Y[0] = 0.5*height
+            B[1:] = 0.
+            Y[1:] = 0.
+        elif(waveType == "nonlinear"):
+            for i in range(Y):
+                Y[i]/=k
+            for i in range(B):
+                B[i]*=sqrt(abs(g[vert_axis])/k)*(i+1)
+        for 
+        
+def waveVelocity_u(x,t):
+     return sigma*amplitude*cosh(k*(z(x)+h))*cos(theta(x,t))/sinh(k*h)
+
+def waveVelocity_v(x,t):
+     return sigma*amplitude*sinh(k*(z(x)+h))*sin(theta(x,t))/sinh(k*h)
+
+ 
+#solution variables
+
+def wavePhi(x,t):
+    return x[1] - waveHeight(x,t)
+
+def waveVF(x,t):
+    return smoothedHeaviside(epsFact_consrv_heaviside*he,wavePhi(x,t))
+
+def twpflowVelocity_u(x,t):
+    waterspeed = waveVelocity_u(x,t)
+    H = smoothedHeaviside(epsFact_consrv_heaviside*he,wavePhi(x,t)-epsFact_consrv_heaviside*he)
+    u = H*windVelocity[0] + (1.0-H)*waterspeed
+    return u
+
+def twpflowVelocity_v(x,t):
+    waterspeed = waveVelocity_v(x,t)
+    H = smoothedHeaviside(epsFact_consrv_heaviside*he,wavePhi(x,t)-epsFact_consrv_heaviside*he)
+    return H*windVelocity[1]+(1.0-H)*waterspeed
+
+def twpflowFlux(x,t):
+    return -twpflowVelocity_u(x,t)
+
+outflowHeight=inflowHeightMean
+
+def outflowVF(x,t):
+    return smoothedHeaviside(epsFact_consrv_heaviside*he,x[1] - outflowHeight)
+
+def outflowPhi(x,t):
+    return x[1] - outflowHeight
+
+def outflowPressure(x,t):
+  if x[1]>inflowHeightMean:
+    return (L[1]-x[1])*rho_1*abs(g[1])
+  else:
+    return (L[1]-inflowHeightMean)*rho_1*abs(g[1])+(inflowHeightMean-x[1])*rho_0*abs(g[1])
+
+
+    #p_L = L[1]*rho_1*g[1]
+    #phi_L = L[1] - outflowHeight
+    #phi = x[1] - outflowHeight
+    #return p_L -g[1]*(rho_0*(phi_L - phi)+(rho_1 -rho_0)*(smoothedHeaviside_integral(epsFact_consrv_heaviside*he,phi_L)
+    #                                                     -smoothedHeaviside_integral(epsFact_consrv_heaviside*he,phi)))
+
+def twpflowVelocity_w(x,t):
+    return 0.0
+
+def zeroVel(x,t):
+    return 0.0
 
             
 
