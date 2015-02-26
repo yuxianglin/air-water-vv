@@ -185,6 +185,32 @@ def readMeshXdmf(xmf_archive_base,heavy_file_base,MeshTag="Spatial_Domain",hasHD
     return MeshInfo
 #
 
+def writeHexMesh(mesh_info,hexfile_base,index_base=1):
+    """
+    Write a hex mesh in Ido's format with base numbering index_base
+    HEX
+    nNodes_global nElements_global
+    x0 y0 z0
+    x1 y1 z1
+    ...
+    xN yN zN
+    [n0 n1 n2 n3 n4 n5 n6 n7 mat0]
+    [n0 n1 n2 n3 n4 n5 n6 n7 mat1]
+    """
+    assert mesh_info.elementTopologyName=='Hexahedron'
+
+    header="""HEX
+{nNodes_global} {nElements_global}
+""".format(nNodes_global=mesh_info.nNodes_global,nElements_global=mesh_info.nElements_global)
+
+    with open(hexfile_base+'.mesh','w') as mout:
+        mout.write(header)
+        numpy.savetxt(mout,mesh_info.nodeArray)
+        #format the elements, appending element material type
+        elems_with_mat = numpy.append(mesh_info.elementNodesArray,mesh_info.elementMaterialTypes.reshape(mesh_info.nElements_global,1),axis=1)
+        elems_with_mat[:,:-1] += index_base
+        numpy.savetxt(mout,elems_with_mat,fmt='%d')
+
 import numpy.testing as npt
 from nose.tools import ok_ as ok
 from nose.tools import eq_ as eq
@@ -209,7 +235,14 @@ def test_3x3_cube(verbose=0):
     eq(len(mesh_info.nodeMaterialTypes),mesh_info.nNodes_owned)
     eq(len(mesh_info.elementMaterialTypes),mesh_info.nElements_owned)
 
+def test_write_3x3_cube(verbose=0):
+    """
+    Read sample openfoam mesh from aggelos and try to write in Ido's hex format
+    """
+    mesh_info = readMeshXdmf('test_read_3x3','test_read_3x3',verbose=0)
+
+    writeHexMesh(mesh_info,'hexMesh_3x3',index_base=1)
 
 if __name__ == '__main__':
     import nose
-    nose.main(defaultTest='read_xmf:test_3x3_cube')
+    nose.main(defaultTest='read_xmf:test_3x3_cube,read_xmf:test_write_3x3_cube')
