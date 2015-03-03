@@ -4,10 +4,10 @@
   <Domain>
     <Grid GridType="Uniform">
       <Topology TopologyType="Hexahedron" Dimensions="27">
-        <DataItem Dimensions="27 8" NumberType="Int" Precision="8" Format="HDF">/home/mfarthin/Public/code/air-water-vv/OpenFOAM_mesh_3x3/VTK/foo.h5:/Data0</DataItem>
+        <DataItem Dimensions="27 8" NumberType="Int" Precision="8" Format="HDF">/home/mfarthin/Public/code/air-water-vv/OpenFOAM_mesh_3x3/VTK/test_read_3x3.h5:/Data0</DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Dimensions="64 3" NumberType="Float" Precision="4" Format="HDF">/home/mfarthin/Public/code/air-water-vv/OpenFOAM_mesh_3x3/VTK/foo.h5:/Data1</DataItem>
+        <DataItem Dimensions="64 3" NumberType="Float" Precision="4" Format="HDF">/home/mfarthin/Public/code/air-water-vv/OpenFOAM_mesh_3x3/VTK/test_read_3x3.h5:/Data1</DataItem>
       </Geometry>
       <Attribute Name="T" AttributeType="Scalar" Center="Cell">
         <DataItem Dimensions="27" NumberType="Float" Precision="4" Format="XML">
