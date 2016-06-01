@@ -1,4 +1,5 @@
 from proteus import Context
+from proteus import Gauges as ga
 import Domain
 import SpatialTools as st
 from proteus import WaveTools as wt
@@ -23,8 +24,8 @@ opts=Context.Options([
     ("refinement_level", 0 ,"Set maximum element diameter to he/2**refinement_level"),
     ("T", 10.0 ,"Simulation time"),
     ("dt_init", 0.001 ,"Initial time step"),
-    ("cfl", 0.33 ,"Target cfl"),
-    ("nsave",  20,"Number of time steps to save per second"),
+    ("cfl", 0.9,"Target cfl"),
+    ("nsave",  10,"Number of time steps to save per second"),
     ("parallel", True ,"Run in parallel")])
 
 
@@ -42,6 +43,8 @@ direction = opts.wave_dir
 wave = wt.MonochromaticWaves(period, height, mwl, depth,
                             np.array([0., -9.81, 0.]), direction)
 wavelength = wave.wavelength
+
+sim_time = period*30.
 
 # tank options
 tank_dim = (wavelength*6, water_level+water_level/3.)
@@ -86,7 +89,8 @@ tank.facetFlags = np.array([1, 2, 3])
 
 he = wavelength/50.
 tank.MeshOptions.refineFacet([0, 1], he)
-tank.MeshOptions.setRefinementFunction('{0}*1.1**((x-4*{1})/{0})'.format(he, wavelength))
+tank.MeshOptions.refineSegment([0, 6, 7, 8, 1, 5, 9], he)
+tank.MeshOptions.setRefinementFunction('{0}*1.1^(abs(x-4*{1})/{0})'.format(he, wavelength))
 domain.MeshOptions.LcMax = tank_dim[1]/10.
 # Mesh.CharacteristicLengthMax
 
@@ -95,6 +99,28 @@ domain.MeshOptions.LcMax = tank_dim[1]/10.
 # domain.MeshOptions.he = he #coarse grid
 st.assembleDomain(domain)
 domain.writeGeo('test1')
+
+
+
+gauge_dx=wavelength/20.
+probes=np.linspace(0., tank_dim[0], tank_dim[0]/gauge_dx+1)
+PG=[]
+zProbes = water_level/2.
+for i in probes:
+    PG.append((i, zProbes, 0.),)
+point_output=ga.PointGauges(gauges=((('p'),PG),),
+                            activeTime=(0.,sim_time),
+                            sampleRate=0,
+                            fileName='point_gauges.csv')
+
+domain.auxiliaryVariables += [point_output]
+
+
+
+
+
+
+
 
 ##########################################
 # Numerical Options and other parameters #
@@ -136,7 +162,7 @@ freezeLevelSet=True
 #----------------------------------------------------
 weak_bc_penalty_constant = 10.0/nu_0#Re
 dt_init = opts.dt_init
-T = opts.T
+T = sim_time
 nDTout = int(opts.T*opts.nsave)
 dt_out =  (T-dt_init)/nDTout
 runCFL = opts.cfl
