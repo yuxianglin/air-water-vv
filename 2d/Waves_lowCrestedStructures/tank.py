@@ -232,7 +232,7 @@ tank.BC.left.setUnsteadyTwoPhaseVelocityInlet(wave=waveinput, vert_axis=1, windS
 
 tank.BC.bottom.setFreeSlip()
 
-tank.BC.right.setFreeSlip()
+tank.BC.right.setNoSlip() #FreeSlip()
 
 tank.BC.sponge.setNonMaterial()
 
