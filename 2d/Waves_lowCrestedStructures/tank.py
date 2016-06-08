@@ -399,32 +399,32 @@ elif spaceOrder == 2:
 ns_forceStrongDirichlet = False
 backgroundDiffusionFactor=0.01
 if useMetrics:
-    ns_shockCapturingFactor  = 0.25 # magnifies numerical viscosity in NS (smoothening velocity fields)
+    ns_shockCapturingFactor  = 0.5 # magnifies numerical viscosity in NS (smoothening velocity fields)
     ns_lag_shockCapturing = True # lagging numerical viscosity speedsup Newton but destabilzes the solution
     ns_lag_subgridError = True # less nonlinear but less stable
-    ls_shockCapturingFactor  = 0.25 # numerical diffusion of level set (smoothening phi)
+    ls_shockCapturingFactor  = 0.5 # numerical diffusion of level set (smoothening phi)
     ls_lag_shockCapturing = True # less nonlinear but less stable
     ls_sc_uref  = 1.0 # reference gradient in numerical solution (higher=more diffusion)
-    ls_sc_beta  = 1.0 # 1 is fully nonlinear, 2 is linear
-    vof_shockCapturingFactor = 0.25 # numerical diffusion of level set (smoothening volume of fraction)
+    ls_sc_beta  = 1.5 # 1 is fully nonlinear, 2 is linear
+    vof_shockCapturingFactor = 0.5 # numerical diffusion of level set (smoothening volume of fraction)
     vof_lag_shockCapturing = True # less nonlinear but less stable
     vof_sc_uref = 1.0 
-    vof_sc_beta = 1.0 
-    rd_shockCapturingFactor  = 0.25
+    vof_sc_beta = 1.5
+    rd_shockCapturingFactor  = 0.5
     rd_lag_shockCapturing = False
     epsFact_density    = 3.0 # control width of water/air transition zone
     epsFact_viscosity  = epsFact_curvature  = epsFact_vof = epsFact_consrv_heaviside = epsFact_consrv_dirac = epsFact_density
     epsFact_redistance = 0.33
     epsFact_consrv_diffusion = 1.0 # affects smoothing diffusion in mass conservation
-    redist_Newton = False
-    kappa_shockCapturingFactor = 0.1
+    redist_Newton = True
+    kappa_shockCapturingFactor = 0.5
     kappa_lag_shockCapturing = True # False
     kappa_sc_uref = 1.0
-    kappa_sc_beta = 1.0
-    dissipation_shockCapturingFactor = 0.1
+    kappa_sc_beta = 1.5
+    dissipation_shockCapturingFactor = 0.5
     dissipation_lag_shockCapturing = True # False
     dissipation_sc_uref = 1.0
-    dissipation_sc_beta = 1.0
+    dissipation_sc_beta = 1.5
 else:
     ns_shockCapturingFactor  = 0.9
     ns_lag_shockCapturing = True
