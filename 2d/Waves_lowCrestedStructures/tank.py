@@ -28,6 +28,7 @@ opts=Context.Options([
     ("cfl", 0.9 ,"Target cfl"),
     ("freezeLevelSet", False, "No motion to the levelset"),
     ("useVF", 0.0, "For density and viscosity smoothing"),
+    ("conservative_Flux", not True, 'For porous interface problem should be set eqaul to False'),
     ])
 
 
