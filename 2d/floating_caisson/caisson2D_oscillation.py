@@ -1,5 +1,6 @@
 from proteus import Domain, Context
 from proteus.mprans import SpatialTools as st
+from proteus import Gauges as ga
 from proteus import WaveTools as wt
 from math import *
 import numpy as np
@@ -16,7 +17,11 @@ opts=Context.Options([
     ("waves", False, "Generate waves (True/False)"),
     ("wave_period", 0.8, "Period of the waves"),
     ("wave_height", 0.029, "Height of the waves"),
+    ("wave_wavelength", None, "wavelength"),
     ("wave_dir", (1., 0., 0.), "Direction of the waves (from left boundary)"),
+    ("wave_type", 'Linear', "wave type"),
+    ("Bcoeff", None, "Bcoeff"),
+    ("Ycoeff", None, "Ycoeff"),
     # caisson
     ("caisson_dim", (0.3, 0.1), "Dimensions of the caisson"),
     ("caisson_coords", None, "Dimensions of the caisson"),
@@ -24,15 +29,19 @@ opts=Context.Options([
     ("free_x", (0.0, 0.0, 0.0), "Translational DOFs"),
     ("free_r", (0.0, 0.0, 1.0), "Rotational DOFs"),
     ("VCG", None, "vertical position of the barycenter of the caisson"),
-    ("draft", 0.425, "Draft of the caisson"),
     ("inertia", 0.236, "Inertia of the caisson"),
     ("rotation_angle", np.pi/12., "Initial rotation angle (in radians)"),
+    # gauges
+    ("PG", False, "Pressure gauge"),
+    ("PG_dx", None, "Pressure gauge dx"),
     # numerical options
     #("gen_mesh", True ,"Generate new mesh"),
+    ("he", 0, "characteristic mesh element size"),
     ("refinement_level", 0 ,"Set maximum element diameter to he/2**refinement_level"),
+    ("rans", 0, "rans"),
     ("T", 10.0 ,"Simulation time"),
     ("dt_init", 0.001 ,"Initial time step"),
-    ("cfl", 0.33 ,"Target cfl"),
+    ("cfl", 0.9,"Target cfl"),
     ("nsave",  20,"Number of time steps to save per second"),
     ("parallel", True ,"Run in parallel")])
 
@@ -47,10 +56,19 @@ waterLevel = opts.water_level
 if opts.waves is True:
     period = opts.wave_period
     height = opts.wave_height
+    wavelength = opts.wave_wavelength
     mwl = depth = opts.water_level
     direction = opts.wave_dir
-    wave = wt.MonochromaticWaves(period, height, mwl, depth,
-                                 np.array([0., -9.81, 0.]), direction)
+    wave_type = opts.wave_type
+    if wave_type == 'Fenton':
+        Bcoeff = opts.Bcoeff
+        Ycoeff = opts.Ycoeff
+    else:
+        Bcoeff = None
+        Ycoeff = None
+    wave = wt.MonochromaticWaves(period=period, waveHeight=height, mwl=mwl, depth=depth,
+                                 g=np.array([0., -9.81, 0.]), waveDir=direction, waveType=wave_type,
+                                 Ycoeff=Ycoeff, Bcoeff=Bcoeff, wavelength=wavelength)
 
 # tank options
 tank_dim = opts.tank_dim
@@ -61,7 +79,6 @@ dim = opts.caisson_dim
 VCG = opts.VCG
 if VCG is None:
     VCG = dim[1]/2.
-draft = opts.draft
 free_x = opts.free_x
 free_r = opts.free_r
 rotation = opts.rotation_angle
@@ -72,7 +89,7 @@ else:
 barycenter = (coords[0], coords[1]-dim[1]/2.+VCG)
 inertia = opts.inertia
 width = opts.caisson_width
-caisson_mass = 15  # mass is actually not used (cancelled in inertia -> see below)
+caisson_mass = 1  # mass is actually not used (cancelled in inertia -> see below)
 
 
 
@@ -84,14 +101,14 @@ domain = Domain.PlanarStraightLineGraphDomain()
 # ----- SHAPES ----- #
 
 tank = st.Tank2D(domain, tank_dim)
-tank.setSponge(left=tank_sponge[0], right=tank_sponge[1])
+tank.setSponge(x_n=tank_sponge[0], x_p=tank_sponge[1])
 if tank_sponge[0]: left = True
 if tank_sponge[1]: right = True
 if opts.waves is True:
-    tank.setGenerationZones(left=left, waves=wave)
+    tank.setGenerationZones(x_n=left, waves=wave)
 else:
-    tank.setAbsorptionZones(left=left)
-tank.setAbsorptionZones(right=right)
+    tank.setAbsorptionZones(x_nleft)
+tank.setAbsorptionZones(x_p=right)
 
 caisson3D = st.Rectangle(domain, dim=dim, coords=coords)
 caisson3D.setRigidBody()
@@ -100,25 +117,43 @@ caisson3D.setConstraints(free_x=free_x, free_r=free_r)
 if rotation:
     caisson3D.rotate(rotation)  # initial position for free oscillation
 caisson3D.It = inertia/caisson3D.mass/width
-caisson3D.setRecordValues(pos=True, rot=True, F=True, M=True)
+if opts.waves is True:
+    caisson3D.setRecordValues(pos=True, rot=True, F=True, M=True,
+                            filename='jung_'+str(period)+'_'+str(height)+'_'+opts.wave_type+'_rans'+str(opts.rans))
+else:
+    caisson3D.setRecordValues(pos=True, rot=True, F=True, M=True,
+                            filename='jung_freeosc_he'+str(opts.he)+'_tank'+str(tank.dim[0]))
 
 # ----- BOUNDARY CONDITIONS ----- #
 
 for bc in caisson3D.BC_list:
     bc.setNoSlip()
 
-tank.BC.top.setOpenAir()
-tank.BC.bottom.setNoSlip()
+tank.BC['y+'].setAtmosphere()
+tank.BC['y-'].setNoSlip()
 if opts.waves is True:
-    tank.BC.left.setUnsteadyTwoPhaseVelocityInlet(wave, vert_axis=1)
+    tank.BC['x-'].setUnsteadyTwoPhaseVelocityInlet(wave, vert_axis=1)
 else:
-    tank.BC.left.setNoSlip()
-tank.BC.right.setNoSlip()
-tank.BC.sponge.setNonMaterial()
+    tank.BC['x-'].setNoSlip()
+tank.BC['x+'].setNoSlip()
+tank.BC['sponge'].setNonMaterial()
+for bc in tank.BC_list:
+    bc.setFixedNodes()
 
 
 
 
+
+
+from math import *
+from proteus import MeshTools, AuxiliaryVariables
+import numpy
+import proteus.MeshTools
+from proteus import Domain
+from proteus.Profiling import logEvent
+from proteus.default_n import *
+from proteus.ctransportCoefficients import smoothedHeaviside
+from proteus.ctransportCoefficients import smoothedHeaviside_integral
 
 ##########################################
 # Numerical Options and other parameters #
@@ -133,22 +168,51 @@ sigma_01=0.0
 g = [0., -9.81]
 
 
-refinement_level = opts.refinement_level
-he = (caisson3D.dim[-1])/12.0*(0.5**refinement_level)
+#refinement_level = opts.refinement_level
+#he = (caisson3D.dim[-1])/12.0*(0.5**refinement_level)
+he = opts.he
+ecH = 3
 domain.MeshOptions.he = he #coarse grid
-
-
-from math import *
-from proteus import MeshTools, AuxiliaryVariables
-import numpy
-import proteus.MeshTools
-from proteus import Domain
-from proteus.Profiling import logEvent
-from proteus.default_n import *
-from proteus.ctransportCoefficients import smoothedHeaviside
-from proteus.ctransportCoefficients import smoothedHeaviside_integral
-
 st.assembleDomain(domain)
+#----------------------------------------------------
+# Time stepping and velocity
+#----------------------------------------------------
+weak_bc_penalty_constant = 10.0/nu_0#Re
+dt_init = opts.dt_init
+T = opts.T
+nDTout = int(opts.T*opts.nsave)
+if nDTout > 0:
+    dt_out =  (T-dt_init)/nDTout
+else:
+    dt_out =  0#(T-dt_init)/nDTout
+runCFL = opts.cfl
+
+
+
+# GAUGES
+
+
+if opts.PG is True:
+    if opts.PG_dx is None:
+        if opts.wave_wavelength is not None:
+            gauge_dx=opts.wave_wavelength/20.
+        else:
+            gauge_dx=opts.tank_sponge[0]/20.
+    else:
+        gauge_dx = opts.PG_dx
+    probes=np.linspace(-tank_sponge[0], tank_dim[0]+tank_sponge[1], ((tank_dim[0]+tank_sponge[0]+tank_sponge[1])/gauge_dx)+1)
+    PG=[]
+    zProbes=waterLevel*0.5
+    for i in probes:
+        PG.append((i, zProbes, 0.),)
+
+    point_output=ga.PointGauges(gauges=((('p',),PG),
+                                    ),
+                            activeTime = (0., T),
+                            sampleRate=0.,
+                            fileName='point_gauges.csv')
+
+    domain.auxiliaryVariables['twp'] += [point_output]
 
 #----------------------------------------------------
 # Boundary conditions and other flags
@@ -159,15 +223,6 @@ applyCorrection=True
 applyRedistancing=True
 freezeLevelSet=True
 
-#----------------------------------------------------
-# Time stepping and velocity
-#----------------------------------------------------
-weak_bc_penalty_constant = 10.0/nu_0#Re
-dt_init = opts.dt_init
-T = opts.T
-nDTout = int(opts.T*opts.nsave)
-dt_out =  (T-dt_init)/nDTout
-runCFL = opts.cfl
 
 #----------------------------------------------------
 
@@ -180,7 +235,7 @@ useRBLES   = 0.0
 useMetrics = 1.0
 useVF = 1.0
 useOnlyVF = False
-useRANS = 0 # 0 -- None
+useRANS = opts.rans # 0 -- None
             # 1 -- K-Epsilon
             # 2 -- K-Omega, 1998
             # 3 -- K-Omega, 1988
@@ -202,22 +257,22 @@ nd = 2
 if spaceOrder == 1:
     hFactor=1.0
     if useHex:
-	 basis=C0_AffineLinearOnCubeWithNodalBasis
-         elementQuadrature = CubeGaussQuadrature(nd,3)
-         elementBoundaryQuadrature = CubeGaussQuadrature(nd-1,3)
+        basis=C0_AffineLinearOnCubeWithNodalBasis
+        elementQuadrature = CubeGaussQuadrature(nd,3)
+        elementBoundaryQuadrature = CubeGaussQuadrature(nd-1,3)
     else:
-    	 basis=C0_AffineLinearOnSimplexWithNodalBasis
-         elementQuadrature = SimplexGaussQuadrature(nd,3)
-         elementBoundaryQuadrature = SimplexGaussQuadrature(nd-1,3)
+        basis=C0_AffineLinearOnSimplexWithNodalBasis
+        elementQuadrature = SimplexGaussQuadrature(nd,3)
+        elementBoundaryQuadrature = SimplexGaussQuadrature(nd-1,3)
          #elementBoundaryQuadrature = SimplexLobattoQuadrature(nd-1,1)
 elif spaceOrder == 2:
     hFactor=0.5
     if useHex:
-	basis=C0_AffineLagrangeOnCubeWithNodalBasis
+        basis=C0_AffineLagrangeOnCubeWithNodalBasis
         elementQuadrature = CubeGaussQuadrature(nd,4)
         elementBoundaryQuadrature = CubeGaussQuadrature(nd-1,4)
     else:
-	basis=C0_AffineQuadraticOnSimplexWithNodalBasis
+        basis=C0_AffineQuadraticOnSimplexWithNodalBasis
         elementQuadrature = SimplexGaussQuadrature(nd,4)
         elementBoundaryQuadrature = SimplexGaussQuadrature(nd-1,4)
 
@@ -304,4 +359,4 @@ def twpflowPressure_init(x, t):
     return p_L -g[nd-1]*(rho_0*(phi_L - phi)+(rho_1 -rho_0)*(smoothedHeaviside_integral(epsFact_consrv_heaviside*domain.MeshOptions.he,phi_L)
                                                          -smoothedHeaviside_integral(epsFact_consrv_heaviside*domain.MeshOptions.he,phi)))
 
-tank.BC.top.p_dirichlet = twpflowPressure_init
+tank.BC['y+'].p_dirichlet.uOfXT = twpflowPressure_init

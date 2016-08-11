@@ -31,8 +31,8 @@ coefficients = MoveMesh.Coefficients(nd=ct.domain.nd,
                                      meIndex=0)
 
 
-dirichletConditions = {0: lambda x, flag: domain.bc[flag].hx_dirichlet,
-                       1: lambda x, flag: domain.bc[flag].hy_dirichlet}
+dirichletConditions = {0: lambda x, flag: domain.bc[flag].hx_dirichlet.init_cython(),
+                       1: lambda x, flag: domain.bc[flag].hy_dirichlet.init_cython()}
 
 fluxBoundaryConditions = {0: 'noFlow',
                           1: 'noFlow'}
@@ -46,7 +46,7 @@ stressFluxBoundaryConditions = {0: lambda x, flag: domain.bc[flag].u_stress,
                                 1: lambda x, flag: domain.bc[flag].v_stress}
 
 if nd == 3:
-    dirichletConditions[2] = lambda x, flag: domain.bc[flag].hz_dirichlet
+    dirichletConditions[2] = lambda x, flag: domain.bc[flag].hz_dirichlet.init_cython()
     fluxBoundaryConditions[2] = 'noFlow'
     diffusiveFluxBoundaryConditions[2] = {}
     stressFluxBoundaryConditions[2] = lambda x, flag: domain.bc[flag].w_stress
