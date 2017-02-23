@@ -16,7 +16,7 @@ opts = Context.Options([
     # test options
     ("water_level", 1., "Height of free surface above bottom"),
     # tank
-    ("tank_dim", (50., 1.5,), "Dimensions of the tank"),
+    ("tank_dim", (20., 1.5,), "Dimensions of the tank"),
     ("generation", True, "Generate waves at the left boundary (True/False)"),
     ("absorption", True, "Absorb waves at the right boundary (True/False)"),
     ("tank_sponge", (8.75, 17.5), "Length of generation/absorption zone"),
@@ -42,7 +42,7 @@ opts = Context.Options([
     ("column_gauge_output", True, "Produce column gauge output"),
     ("gauge_dx", 0.25, "Horizontal spacing of point gauges/column gauges"),
     # refinement
-    ("refLevel", 100, "Refinement level (w/respect to wavelength)"),
+    ("refLevel", 200, "Refinement level (w/respect to wavelength)"),
     ("cfl", 0.33, "Target cfl"),
     # run time
     ("T", 60.0, "Simulation time"),
