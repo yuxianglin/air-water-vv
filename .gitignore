@@ -36,3 +36,5 @@ mesh*
 src/subsurfaceTransportFunctions.c
 hashdist/
 stack/
+*.txt
+*.m
