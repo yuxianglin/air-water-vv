@@ -77,15 +77,15 @@ obst_height  =opts.obst_dim[1]
 obst_center  =opts.obst_center
 obst_point1 = obst_center-obst_diameter/2
 obst_point2 = obst_center+obst_diameter/2
-vertices=[[0.0,0.0],#0
-          [obst_point1,0.0],#1
-          [obst_point1,obst_height],#2
-          [obst_point2,obst_height],#3
-          [obst_point2,0.0],#4
-          [L[0],0.0],#5
-          [L[0],L[1]],#6
-          [0.0,L[1]]#7
-          ]
+#vertices=[[0.0,0.0],#0
+#          [obst_point1,0.0],#1
+#          [obst_point1,obst_height],#2
+#          [obst_point2,obst_height],#3
+#          [obst_point2,0.0],#4
+#          [L[0],0.0],#5
+#          [L[0],L[1]],#6
+#          [0.0,L[1]]#7
+#          ]
 
 vertices=[[0.0,0.0],#0
           [obst_point1,0.0],#1
@@ -133,16 +133,15 @@ segmentFlags=[boundaryTags['bottom'],
               boundaryTags['sponge']]
 
 
-
-xRelaxCenter_1 = xSponge_1/2
-xRelaxCenter_2 = (xSponge_2+L[0])/2
+if tank_sponge[0]:xRelaxCenter_1 = xSponge_1/2
+if tank_sponge[1]:xRelaxCenter_2 = (xSponge_2+L[0])/2
 xCenter=L[0]/2
-#regions=[[xCenter, 0.5*L[1]],
-#         [xRelaxCenter_2, 0.5*L[1]]]
-#regionFlags=[1,2]
 regions=[[xCenter, 0.5*L[1]],
-         ]
-regionFlags=[1]
+         [xRelaxCenter_2, 0.5*L[1]]]
+regionFlags=[1,2]
+#regions=[[xCenter, 0.5*L[1]],
+#         ]
+#regionFlags=[1]
 
 BCTags={       'left' : boundaryTags['left'],
                'right' : boundaryTags['right'],
@@ -160,11 +159,12 @@ tank = st.CustomShape(domain,vertices=vertices,vertexFlags=vertexFlags,segments=
                       regions=regions, regionFlags=regionFlags,
                       boundaryTags=BCTags, boundaryOrientations=boundaryOrientations)
 
-#tank.BC['sponge'] =tank.BC_class(shape = tank, name = 'sponge')
+tank.BC['sponge'] =tank.BC_class(shape = tank, name = 'sponge')
 tank.BC['obst'] =tank.BC_class(shape = tank, name = 'obst')
-#tank.BC_list.append(tank.BC['sponge'])
+tank.BC_list.append(tank.BC['sponge'])
 tank.BC_list.append(tank.BC['obst'])
 #regionIndex={'left':0,'right':1,'tank':2}
+regionIndex={'right':2,'tank':1}
 
 
 left = right = False
@@ -181,8 +181,8 @@ if opts.waves is True:
 #    else:
 #		pass
 
-#if right:
-#    tank.setAbsorptionZones(flags=regionIndex['right'], epsFact_solid=xSponge_2/2., center= np.array([xRelaxCenter_2, L[1]/2.]), orientation=boundaryOrientations['right'])
+if right:
+    tank.setAbsorptionZones(flags=regionIndex['right'], epsFact_solid=xSponge_2/2., center= np.array([xRelaxCenter_2, L[1]/2.]), orientation=boundaryOrientations['right'])
 
 
 
@@ -193,7 +193,7 @@ tank.BC['top'].setAtmosphere()
 tank.BC['right'].setNoSlip()
 tank.BC['left'].setNoSlip()
 tank.BC['bottom'].setFreeSlip()
-#tank.BC['sponge'].setNonMaterial()
+tank.BC['sponge'].setNonMaterial()
 tank.BC['obst'].setNoSlip()
 
 #tank.BC['obst'].setFixedNodes()

@@ -31,7 +31,7 @@ class padal(AuxiliaryVariables.AV_base):
         self.model=model
         return self
     def attachAuxiliaryVariables(self,avDict):
-		self.object = avDict['twp_navier_stokes_p'][0]
+		self.object = avDict['twp_navier_stokes_p'][1]
     def hx(self,x,t):
         if self.object == None:
             return 0.0
