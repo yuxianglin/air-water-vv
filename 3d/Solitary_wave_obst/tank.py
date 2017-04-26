@@ -331,6 +331,7 @@ class ElasticBar(AuxiliaryVariables.AV_base):
 
         self.Solver.set_DBC(BC)
 
+        self.Solver.solve()
 
 
 
