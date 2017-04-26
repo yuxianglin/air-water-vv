@@ -63,11 +63,14 @@ class ElastoDynCylinder(ElastoDynBody):
         self.a,self.l=lhs(self.F), rhs(self.F)
 
 	def set_DBC(BC={}):
-        DBC=[]
+        self.DBC=[]
 		for boundary, value in BC.iteritems():
-			DBC=lambda x, on_boundary: on_boundary and boundary
-            bc=DirichletBC(V)
-			DBC.append()
+			boundaries=lambda x, on_boundary: on_boundary and boundary
+            bc=DirichletBC(self.V, Constant(value[0],value[1],value[2]),boundaries)
+			self.DBC.append(bc)
+    def solve():
+        self.uk=Function(self.V)
+        solve(self.a==self.l,self.uk,self.DBC)
 
 
 
