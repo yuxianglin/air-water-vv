@@ -12,20 +12,20 @@ opts=Context.Options([
     ("water_depth", 0.25, " water depth"),
     # tank
     ("tank_dim", (1., 0.9, 0.75), "Dimensions of the tank"),
-    ("tank_sponge", (0.5,1.), "Length of relaxation zones zones (left, right)"),
+    ("tank_sponge", (1.,1.), "Length of relaxation zones zones (left, right)"),
     ("tank_BC", 'freeslip', "boundary type of the tank"),
     ("gauge_output", False, "Places Gauges in tank (5 per wavelength)"),
-	#obst
-    ("obst_dim",(0.3,0.6),"Dimensions of the oil tank"),
-	("obst_center",(0.5,0.45),"obstacle center at bottom"),
+    #obst
+    ("obst_dim",(0.3,0.2),"Dimensions of the oil tank,diameter and hight"),
+    ("obst_center",(0.5,0.45),"obstacle center at bottom"),
     # waves
-    ("waves", True, "Generate waves (True/False)"),
+    ("waves", False, "Generate waves (True/False)"),
     ("wave_height", 0.1, "Height of the waves"),
     ("wave_dir", (1.,0.,0.), "Direction of the waves (from left boundary)"),
     ("g", (0.,0.,-9.81), "Direction of the waves (from left boundary)"),
     ("trans",-0.2 ,"peak offset for solitary wave"),
     # mesh refinement
-    ("he", 0.01, "Set characteristic element size"),
+    ("he", 0.1, "Set characteristic element size"),
     # numerical options
     ("gen_mesh", True, "True: generate new mesh every time. False: do not generate mesh if file exists"),
     ("T", 5.0, "Simulation time"),
@@ -35,7 +35,7 @@ opts=Context.Options([
     ("cfl", 0.4 , "Target cfl"),
     ("nsave",  20, "Number of time steps to save per second"),
     ("useRANS", 0, "RANS model"),
-    ("movingDomain",False,"Switch on moving domain"),
+    ("movingDomain",True,"Switch on moving domain"),
     ("parallel", True ,"Run in parallel")])
 
 
@@ -55,8 +55,8 @@ if opts.waves is True:
                            g = g,
                            waveDir = direction,
                            trans = trans)
-
-
+else:
+    wave=None
 
 
 
@@ -69,111 +69,148 @@ movingDomain = opts.movingDomain
 
 #domain = Domain.PlanarStraightLineGraphDomain()
 domain = Domain.PiecewiseLinearComplexDomain()
-# caisson options
 
 
 boundaries=['left','right','bottom','top','front','back','sponge','obst']
 boundaryTags=dict([(key,i+1) for (i,key) in enumerate(boundaries)])
 
 L=tank_dim
-xSponge_1 = - tank_sponge[0]
-xSponge_2=L[0] + tank_sponge[1]
+if tank_sponge[0]:xSponge_1 = - tank_sponge[0];xRelaxCenter_1 = xSponge_1/2
+if tank_sponge[1]:xSponge_2=L[0] + tank_sponge[1];xRelaxCenter_2 = (xSponge_2+L[0])/2
+
 obst_diameter=opts.obst_dim[0]
 obst_height  =opts.obst_dim[1]
 obst_center  =opts.obst_center
-
-vertices=[[xSponge_1,0.0,0.0],#0
-          [0.0,0.0,0.0],#1
-          [L[0],0.0,0.0],#2
-          [xSponge_2,0.0,0.0],#3
-          [xSponge_2,L[1],0.0],#4
-          [L[0],L[1],0.0],#5
-          [0.0,L[1],0.0],#6
-          [xSponge_1,L[1],0.0]]#7
-
-
+vertices=[[0.0,0.0,0.0],
+          [L[0],0.0,0.0],
+          [L[0],L[1],0.0],
+          [0.0, L[1],0.0]
+         ]
 vertexFlags=[boundaryTags['bottom'],
              boundaryTags['bottom'],
              boundaryTags['bottom'],
-             boundaryTags['bottom'],
-             boundaryTags['bottom'],
-             boundaryTags['bottom'],
-             boundaryTags['bottom'],
-             boundaryTags['bottom']]
+             boundaryTags['bottom']
+             ]
+segments=[[0,1],[1,2],[2,3],[3,0]
+         ]
+segmentFlags=[boundaryTags['front'],
+              boundaryTags['right'],
+              boundaryTags['back'],
+              boundaryTags['left']
+              ]
 
+facets=[]
+facetFlags=[]
+facetHoles=[]
+regions=[[0.1*L[0],0.5*L[1],0.5*L[2]]]
+regionFlags=[1]
+regionIndex={'tank':1}
+spongeLayer=tank_sponge[0] or tank_sponge[1]
+
+v_start=len(vertices)
+v_add=0
+r_add=1
+if tank_sponge[0]:
+
+    vertices.append([xSponge_1,0.0,0.0])
+    vertices.append([xSponge_1,L[1],0.0])
+    vertexFlags.append(boundaryTags['bottom'])
+    vertexFlags.append(boundaryTags['bottom'])
+
+    segmentFlags[3]=boundaryTags['sponge']
+    segments.append([0,4+v_add])
+    segments.append([4+v_add,5+v_add])
+    segments.append([5+v_add,3])
+    segmentFlags.append(boundaryTags['front'])
+    segmentFlags.append(boundaryTags['left'])
+    segmentFlags.append(boundaryTags['back'])
+
+    facets.append([[0,4+v_add,5+v_add,3]])
+    facetFlags.append(boundaryTags['bottom'])
+    facetHoles.append([])
+
+    regions+=[[0.1*xSponge_1,0.5*L[1],0.5*L[2]]]
+    regionFlags+=[r_add+1]
+
+    regionIndex['left']=r_add+1
+    v_add+=2
+if tank_sponge[1]:
+
+    vertices.append([xSponge_2,0.0,0.0])
+    vertices.append([xSponge_2,L[1],0.0])
+    vertexFlags.append(boundaryTags['bottom'])
+    vertexFlags.append(boundaryTags['bottom'])
+
+    segmentFlags[1]=boundaryTags['sponge']
+    segments.append([1,4+v_add])
+    segments.append([4+v_add,5+v_add])
+    segments.append([5+v_add,2])
+    segmentFlags.append(boundaryTags['front'])
+    segmentFlags.append(boundaryTags['right'])
+    segmentFlags.append(boundaryTags['back'])
+
+    facets.append([[1,4+v_add,5+v_add,2]])
+    facets.append([[1+6+v_add,4+6+2*v_add,5+6+2*v_add,2+6+v_add]])
+    facetFlags.append(boundaryTags['bottom'])
+    facetFlags.append(boundaryTags['top'])
+    facetHoles.append([])
+    facetHoles.append([])
+
+    regions+=[[(xSponge_2+L[0])/2.,0.5*L[1],0.5*L[2]]]
+    regionFlags+=[r_add+1]
+
+    regionIndex['right']=r_add+1
+    v_add+=2
+if tank_sponge[0]:
+    facets.append([[4+v_add,7+v_add,9+v_add,8+v_add]])
+    facetFlags+=[boundaryTags['top']]
+    facetHoles.append([])
 
 for v,vf in zip(vertices,vertexFlags):
     vertices.append([v[0],v[1],L[2]])
     vertexFlags.append(boundaryTags['top'])
+
 #adding obst
 from math import ceil,pi,sin,cos
 radius = obst_diameter/2.0
 vbStart=len(vertices)
 #points_on_circle=4*int(ceil(0.5*pi*(radius)/he))
 dx=opts.he
-points_on_circle=int(pi*obst_diameter/dx)
+#points_on_circle=int(pi*obst_diameter/dx)
+points_on_circle=max(int(pi*obst_diameter/dx),30)
 for cb in range(points_on_circle):
-	vertices.append([obst_center[0]+radius*sin(float(cb)/float(points_on_circle)*2.0*pi),
-		             obst_center[1]+radius*cos(float(cb)/float(points_on_circle)*2.0*pi),0.0])
-	vertexFlags.append(boundaryTags['bottom'])
+    vertices.append([obst_center[0]+radius*sin(float(cb)/float(points_on_circle)*2.0*pi),
+                     obst_center[1]+radius*cos(float(cb)/float(points_on_circle)*2.0*pi),0.0])
+    vertexFlags.append(boundaryTags['bottom'])
+
+
 vtStart=len(vertices)
 for cb in range(points_on_circle):
-	vertices.append([obst_center[0]+radius*sin(float(cb)/float(points_on_circle)*2.0*pi),
-		             obst_center[1]+radius*cos(float(cb)/float(points_on_circle)*2.0*pi),obst_height])
-	vertexFlags.append(boundaryTags['obst'])
-#print vertices
-#print vertexFlags
-
-segments=[[0,1],
-          [1,2],
-          [2,3],
-          [3,4],
-          [4,5],
-          [5,6],
-          [6,7],
-          [7,0],
-          [1,6],
-          [2,5]]
-
-segmentFlags=[boundaryTags['front'],
-             boundaryTags['front'],
-             boundaryTags['front'],
-             boundaryTags['right'],
-             boundaryTags['back'],
-             boundaryTags['back'],
-             boundaryTags['back'],
-             boundaryTags['left'],
-             boundaryTags['sponge'],
-             boundaryTags['sponge'] ]
+    vertices.append([obst_center[0]+radius*sin(float(cb)/float(points_on_circle)*2.0*pi),
+                     obst_center[1]+radius*cos(float(cb)/float(points_on_circle)*2.0*pi),obst_height])
+    vertexFlags.append(boundaryTags['obst'])
 
 
-facets=[]
-facetFlags=[]
-facetHoles=[]
 
-for s,sF in zip(segments,segmentFlags):
-    facets.append([[s[0],s[1],s[1]+8,s[0]+8]])
+for s,sF in zip(segments,segmentFlags):#vertical facet
+    facets.append([[s[0],s[1],s[1]+4+v_add,s[0]+4+v_add]])
     facetFlags.append(sF)
     facetHoles.append([])
-bf=[[0,1,6,7],[2,3,4,5]]
-tf=[]
-for i in range(len(bf)):
-    facets.append([bf[i]])
-    facetFlags.append(boundaryTags['bottom'])
-    facetHoles.append([])
-    tf=[ss + 8 for ss in bf[i]]
-    facets.append([tf])
-    facetFlags.append(boundaryTags['top'])
-    facetHoles.append([])
-facets.append([[9,10,13,14]])
-facetFlags.append(boundaryTags['top'])
-facetHoles.append([])
 
 obst_bottom_facet=[vbStart+cb for cb in range(points_on_circle)]
 obst_top_facet=[vtStart+cb for cb in range(points_on_circle)]
-facets.append([[1,2,5,6],obst_bottom_facet])
+
+facets.append([[0,1,2,3],obst_bottom_facet])
 facetFlags.append(boundaryTags['bottom'])
 facetHoles.append([[obst_center[0],obst_center[1],0.0]])
+
+facets.append([[4+v_add,5+v_add,6+v_add,7+v_add,]])
+facetFlags.append(boundaryTags['top'])
+facetHoles.append([])
+
+
+
+
 
 facets.append([obst_top_facet])
 facets.append([obst_bottom_facet])
@@ -188,51 +225,30 @@ for fN in range(len(obst_bottom_facet)):
     facetHoles.append([])
 holes=[[obst_center[0],obst_center[1],obst_height/2]]
 
-
-
-
-#for i in range(0,3):
-#	facetFlags.append(boundaryTags['bottom'])
-#	facetFlags.append(boundaryTags['top'])
-
-#print facets
-#print facetFlags
-xRelaxCenter_1 = xSponge_1/2
-xRelaxCenter_2 = (xSponge_2+L[0])/2
 xCenter=L[0]/2
-regions=[[xRelaxCenter_1, 0.5*L[1], 0.5*L[2]],
-         [xRelaxCenter_2, 0.5*L[1], 0.5*L[2]],
-         [xCenter,        0.5*L[1], 0.5*L[2]]]
-regionFlags=[1,2,3]
-regionIndex={'left':1,'right':2,'tank':3}
 
 BCTags={'left':boundaryTags['left'],
-	   'right':boundaryTags['right'],
-	   'front':boundaryTags['front'],
-	    'back':boundaryTags['back'], 
-	  'bottom':boundaryTags['bottom'], 
-	    'top' :boundaryTags['top']}
-              #'obst': 7,
-              #'sponge' : 8}
+        'right':boundaryTags['right'],
+        'front':boundaryTags['front'],
+        'back':boundaryTags['back'],
+        'bottom':boundaryTags['bottom'],
+        'top' :boundaryTags['top']}
+
 boundaryOrientations={'left' :np.array([-1., 0., 0.]),
-		              'right':np.array([ 1., 0., 0.]),
-					  'front':np.array([ 0.,-1., 0.]),
+                      'right':np.array([ 1., 0., 0.]),
+                      'front':np.array([ 0.,-1., 0.]),
                       'back' :np.array([ 0., 1., 0.]),
-					 'bottom':np.array([ 0., 0.,-1.]),
-					  'top'  :np.array([ 0., 0., 1.])}
+                      'bottom':np.array([ 0., 0.,-1.]),
+                      'top'  :np.array([ 0., 0., 1.])}
 
 
 
 # ----- SHAPES ----- #
-#tank = st.Tank2D(domain, tank_dim)
+
 tank = st.CustomShape(domain,vertices=vertices,vertexFlags=vertexFlags,facets=facets,facetFlags=facetFlags,
                       facetHoles=facetHoles, holes=holes, regions=regions, regionFlags=regionFlags,
                       boundaryTags=BCTags, boundaryOrientations=boundaryOrientations)
-#tank = st.CustomShape(domain,vertices=vertices,vertexFlags=vertexFlags,facets=facets,facetFlags=facetFlags,
-#                      holes=holes, regions=regions, regionFlags=regionFlags,
-#                      boundaryTags=boundaryTags, boundaryOrientations=boundaryOrientations)
-#tank.facetHoles=np.array(facetHoles)
-#tank.setSponge(x_n=tank_sponge[0], x_p=tank_sponge[1])
+
 tank.BC['sponge'] =tank.BC_class(shape = tank, name = 'sponge')
 tank.BC['obst'] =tank.BC_class(shape = tank, name = 'obst')
 tank.BC_list.append(tank.BC['sponge'])
@@ -246,16 +262,16 @@ if tank_sponge[1]: right = True
 if opts.waves is True:
     smoothing = opts.he*0.
     tank.BC['left'].setUnsteadyTwoPhaseVelocityInlet(wave, smoothing=smoothing,vert_axis=2)
+
 if left:
     if opts.waves is True:
-        #import pdb;pdb.set_trace()
         #tank.setGenerationZones(x_n=left, waves=wave, smoothing=smoothing, dragAlpha=0.5/1.004e-6)
         tank.setGenerationZones(flags=regionIndex['left'],epsFact_solid=xSponge_1/2.,center=np.array([xRelaxCenter_1,L[1]/2.,L[2]/2.]),orientation=boundaryOrientations['left'], waves=wave, smoothing=smoothing, dragAlpha=0.5/1.004e-6)
     else:
-		pass
-		#tank.setAbsorptionZones(x_n=left, dragAlpha=0.5/1.004e-6)
+        pass
+    #tank.setAbsorptionZones(x_n=left, dragAlpha=0.5/1.004e-6)
 else:
-    tank.BC['x-'].setNoSlip()
+    tank.BC['left'].setNoSlip()
 if right:
     tank.setAbsorptionZones(flags=regionIndex['right'], epsFact_solid=xSponge_2/2., center= np.array([xRelaxCenter_2, L[1]/2.,L[2]/2.]), orientation=boundaryOrientations['right'])
 
@@ -272,18 +288,20 @@ tank.BC['right'].setNoSlip()
 tank.BC['bottom'].setFreeSlip()
 tank.BC['sponge'].setNonMaterial()
 tank.BC['obst'].setFreeSlip()
-for bc in tank.BC_list:
-    bc.setFixedNodes()
-for i in range(6):
-	tank.BC_list[i].setTank()
+#for bc in tank.BC_list:
+#    bc.setFixedNodes()
+#for i in range(6):
+#    tank.BC_list[i].setTank()
 
-
+domain.MeshOptions.genMesh = opts.gen_mesh
+domain.MeshOptions.he = opts.he
+st.assembleDomain(domain)
 
 FuncType='Lagrange'
 Order=1
 from SolidSolver import ElastoDynCylinder
 class ElasticBar(AuxiliaryVariables.AV_base):
-#class ElasticBar():
+    #class ElasticBar():
     def __init__(self,density=7800,E=207e9,nu=0.3,D=1.22,H=1.92,loc=np.array([10.,10.])):
         self.dt_init=opts.dt_init
         self.he=opts.he
@@ -294,28 +312,33 @@ class ElasticBar(AuxiliaryVariables.AV_base):
         self.D=D
         self.H=H
         self.Solver=ElastoDynCylinder(E=E, nu=nu, g=opts.g, density=density, D=D, H=H, loc=loc)
-        self.Solver.GenerateMesh(opts.he)
-        self.Solver.set_dt(self.dt)
-        self.Solver.set_functional(FuncType,Order)
-
+        #self.Solver.set_g(opts.g)
+        self.Solver.GenerateMesh(0.05,output=1)
 
     def attachModel(self,model,ar):
         self.model=model
         self.ar=ar
         self.writer=Archiver.XdmfWriter()
         self.nd = model.levelModelList[-1].nSpace_global
-        #m = self.model.levelModelList[-1]
         return self
+    def calculate_init(self):
+        self.calculate()
 
     def calculate(self):
-        nExtEleBoundary =self.model.levelModelList[-1].mesh.nExteriorElementBoundaries_global
+        try:
+            self.dt=self.model.levelModelList[-1].dt_last
+        except:
+            self.dt=self.dt_init
+        self.Solver.set_dt(self.dt)
+        self.Solver.set_functional(FuncType,Order)
 
+        #nExtEleBoundary =self.model.levelModelList[-1].mesh.nExteriorElementBoundaries_global
         EleBoundaryMTInd=self.model.levelModelList[-1].mesh.elementBoundaryMaterialTypes
         ExtEleBoundaryArray=self.model.levelModelList[-1].mesh.exteriorElementBoundariesArray
         #obstInd=[count if EleBoundaryMTInd[ind]==boundaryTags['obst'] for count, ind in enumerate(ExtEleBoundaryArray)]
         obstInd=[count for count, ind in enumerate(ExtEleBoundaryArray) if EleBoundaryMTInd[ind]==boundaryTags['obst'] ]
-         
-        
+
+
         Force_x=self.model.levelModelList[-1].coefficients.forces_x[obstInd]
         Force_y=self.model.levelModelList[-1].coefficients.forces_y[obstInd]
         Force_z=self.model.levelModelList[-1].coefficients.forces_z[obstInd]
@@ -323,21 +346,16 @@ class ElasticBar(AuxiliaryVariables.AV_base):
         self.Solver.set_force(Force_x,Force_y,Force_z,Force_coords)
 
         self.Solver.set_variationalform()
-        
-        #zero=Constant(('0.0','0.0','0.0'))
+
         zero=('0.0','0.0','0.0')
-        bottom=lambda x: x[2] < DOLFIN_EPS
+        bottom=lambda x: x[2] < 1e-12
         BC={bottom:zero}
 
         self.Solver.set_DBC(BC)
 
         self.Solver.solve()
 
-
-
-
-
-
+cylinder=ElasticBar(density=7800,E=207e9,nu=0.3,D=obst_diameter,H=obst_height,loc=np.array(obst_center))
 
 
 
@@ -458,9 +476,9 @@ useMetrics = 1.0
 useVF = 1.0
 useOnlyVF = False
 useRANS = opts.useRANS # 0 -- None
-            # 1 -- K-Epsilon
-            # 2 -- K-Omega, 1998
-            # 3 -- K-Omega, 1988
+# 1 -- K-Epsilon
+# 2 -- K-Omega, 1998
+# 3 -- K-Omega, 1988
 # Input checks
 if spaceOrder not in [1,2]:
     print "INVALID: spaceOrder" + spaceOrder
@@ -479,22 +497,22 @@ nd = 3
 if spaceOrder == 1:
     hFactor=1.0
     if useHex:
-	 basis=C0_AffineLinearOnCubeWithNodalBasis
-         elementQuadrature = CubeGaussQuadrature(nd,3)
-         elementBoundaryQuadrature = CubeGaussQuadrature(nd-1,3)
+        basis=C0_AffineLinearOnCubeWithNodalBasis
+        elementQuadrature = CubeGaussQuadrature(nd,3)
+        elementBoundaryQuadrature = CubeGaussQuadrature(nd-1,3)
     else:
-    	 basis=C0_AffineLinearOnSimplexWithNodalBasis
-         elementQuadrature = SimplexGaussQuadrature(nd,3)
-         elementBoundaryQuadrature = SimplexGaussQuadrature(nd-1,3)
-         #elementBoundaryQuadrature = SimplexLobattoQuadrature(nd-1,1)
+        basis=C0_AffineLinearOnSimplexWithNodalBasis
+        elementQuadrature = SimplexGaussQuadrature(nd,3)
+        elementBoundaryQuadrature = SimplexGaussQuadrature(nd-1,3)
+        #elementBoundaryQuadrature = SimplexLobattoQuadrature(nd-1,1)
 elif spaceOrder == 2:
     hFactor=0.5
     if useHex:
-	basis=C0_AffineLagrangeOnCubeWithNodalBasis
+        basis=C0_AffineLagrangeOnCubeWithNodalBasis
         elementQuadrature = CubeGaussQuadrature(nd,4)
         elementBoundaryQuadrature = CubeGaussQuadrature(nd-1,4)
     else:
-	basis=C0_AffineQuadraticOnSimplexWithNodalBasis
+        basis=C0_AffineQuadraticOnSimplexWithNodalBasis
         elementQuadrature = SimplexGaussQuadrature(nd,4)
         elementBoundaryQuadrature = SimplexGaussQuadrature(nd-1,4)
 
@@ -579,9 +597,11 @@ elif useRANS >= 2:
 
 def twpflowPressure_init(x, t):
     p_L = 0.0
-    wl = waterLevel + wave.eta(x,t)
+    if opts.waves:
+        wl = waterLevel + wave.eta(x,t)
+    else:
+        wl = waterLevel 
     phi_L = tank_dim[nd-1] - wl
     phi = x[nd - 1] - wl
-    print
     return p_L -g[nd-1]*(rho_0*(phi_L - phi)+(rho_1 -rho_0)*(smoothedHeaviside_integral(epsFact_consrv_heaviside*opts.he,phi_L)
-                                                         -smoothedHeaviside_integral(epsFact_consrv_heaviside*opts.he,phi)))
+                                                             -smoothedHeaviside_integral(epsFact_consrv_heaviside*opts.he,phi)))
