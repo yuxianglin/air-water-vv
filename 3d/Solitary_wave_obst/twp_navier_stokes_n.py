@@ -84,4 +84,7 @@ useEisenstatWalker = False#True
 maxNonlinearIts = 50
 maxLineSearches = 0
 conservativeFlux = {0:'pwl-bdm-opt'}
-auxiliaryVariables = ct.domain.auxiliaryVariables['twp']
+#auxiliaryVariables = [ct.domain.auxiliaryVariables['twp'][0],ct.cylinder]
+if ct.spongeLayer:auxiliaryVariables = [ct.domain.auxiliaryVariables['twp'][0],ct.cylinder]
+else:
+    auxiliaryVariables = [ct.cylinder]
