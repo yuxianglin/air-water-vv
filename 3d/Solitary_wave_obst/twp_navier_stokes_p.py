@@ -96,18 +96,22 @@ class P_IC:
 
 class U_IC:
     def uOfXT(self, x, t):
-        smooth = ct.epsFact_consrv_heaviside*ct.opts.he
-        phi = x[nd-1] - (ct.waterLevel + ct.wave.eta(x,t)) + smooth
-        weight = 1. - smoothedHeaviside(smooth, phi)
-        return weight*ct.wave.u(x,t)[0]
-
+        if ct.wave:
+            smooth = ct.epsFact_consrv_heaviside*ct.opts.he
+            phi = x[nd-1] - (ct.waterLevel + ct.wave.eta(x,t)) + smooth
+            weight = 1. - smoothedHeaviside(smooth, phi)
+            return weight*ct.wave.u(x,t)[0]
+        else:
+            return 0.0
 class W_IC:
     def uOfXT(self, x, t):
-        smooth = ct.epsFact_consrv_heaviside*ct.opts.he
-        phi = x[nd-1] - (ct.waterLevel + ct.wave.eta(x,t)) + smooth
-        weight = 1. - smoothedHeaviside(smooth, phi)
-        return weight*ct.wave.u(x,t)[nd-1]
-
+        if ct.wave:
+            smooth = ct.epsFact_consrv_heaviside*ct.opts.he
+            phi = x[nd-1] - (ct.waterLevel + ct.wave.eta(x,t)) + smooth
+            weight = 1. - smoothedHeaviside(smooth, phi)
+            return weight*ct.wave.u(x,t)[nd-1]
+        else:
+            return 0.0
 
 class V_IC:
     def uOfXT(self, x, t):
