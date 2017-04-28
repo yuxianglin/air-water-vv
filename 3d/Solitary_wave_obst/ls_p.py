@@ -32,6 +32,7 @@ diffusiveFluxBoundaryConditions = {0: {}}
 
 class PHI_IC:
     def uOfXT(self, x, t):
-        return x[nd-1] - (ct.mwl + wave.eta(x,t))
-
+        if ct.wave: return x[nd-1] - (ct.waterLevel + wave.eta(x,t))
+        else:
+            return x[nd-1] - ct.waterLevel
 initialConditions = {0: PHI_IC()}

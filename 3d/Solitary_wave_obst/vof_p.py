@@ -40,6 +40,7 @@ diffusiveFluxBoundaryConditions = {0: {}}
 
 class VF_IC:
     def uOfXT(self, x, t):
-        return smoothedHeaviside(ct.epsFact_consrv_heaviside*ct.opts.he,x[nd-1]-(ct.waterLevel+ct.wave.eta(x,t)))
-
+        if ct.wave: return smoothedHeaviside(ct.epsFact_consrv_heaviside*ct.opts.he,x[nd-1]-(ct.waterLevel+ct.wave.eta(x,t)))
+        else:
+            return smoothedHeaviside(ct.epsFact_consrv_heaviside*ct.opts.he,x[nd-1]-ct.waterLevel)
 initialConditions = {0: VF_IC()}
