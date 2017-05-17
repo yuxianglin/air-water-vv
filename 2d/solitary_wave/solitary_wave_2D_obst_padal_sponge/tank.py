@@ -191,16 +191,21 @@ if right:
 tank.BC['top'].setAtmosphere()
 #tank.BC['top'].setNoSlip()
 tank.BC['right'].setNoSlip()
+tank.BC['right'].setTank()
+
 tank.BC['left'].setNoSlip()
+tank.BC['left'].setTank()
+
 tank.BC['bottom'].setFreeSlip()
 tank.BC['sponge'].setNonMaterial()
 tank.BC['obst'].setNoSlip()
 
 #tank.BC['obst'].setFixedNodes()
-#tank.BC['right'].setFixedNodes()
-#tank.BC['bottom'].setFixedNodes()
-#tank.BC['top'].setFixedNodes()
-#tank.BC['left'].setFixedNodes()
+tank.BC['right'].setFixedNodes()
+tank.BC['bottom'].setFixedNodes()
+tank.BC['top'].setFixedNodes()
+tank.BC['left'].setFixedNodes()
+tank.BC['sponge'].setFixedNodes()
 #for bc in tank.BC_list:
 #    bc.setFixedNodes()
 #for i in range(4):
