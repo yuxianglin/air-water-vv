@@ -9,14 +9,15 @@ initialConditions = None
 
 analyticalSolution = {}
 
-nMediaTypes=1
+nMediaTypes=len(domain.regionFlags)
 smTypes      = numpy.zeros((nMediaTypes+1,2),'d')
 smFlags      = numpy.zeros((nMediaTypes+1,),'i')
 
-smTypes[0,0] = 1.0    ##E
-smTypes[0,1] = 0.3    ##nu
-smTypes[1,0] = 1.0    ##E
-smTypes[1,1] = 0.3    ##nu
+
+smTypes[:, 0] = 1.0
+smTypes[:, 1] = 0.3
+
+
 
 LevelModelType = MoveMesh.LevelModel
 coefficients = MoveMesh.Coefficients(nd=ct.nd,
@@ -58,14 +59,14 @@ class padal(AuxiliaryVariables.AV_base):
 fo = padal()
 
 def getDBC_hx(x,flag):
-    if flag in [boundaryTags['left'],boundaryTags['right'],boundaryTags['top'],boundaryTags['bottom']]:
+    if flag in [boundaryTags['left'],boundaryTags['right'],boundaryTags['sponge']]:
         return lambda x,t: 0.0
     if flag == boundaryTags['obst']:
-        #return lambda x,t: 0.001
-        return lambda x,t: fo.hx(x,t)
+        return lambda x,t: 0.001
+        #return lambda x,t: fo.hx(x,t)
 
 def getDBC_hy(x,flag):
-    if flag in [boundaryTags['left'],boundaryTags['right'],boundaryTags['top'],boundaryTags['bottom']]:
+    if flag in [boundaryTags['left'],boundaryTags['right'],boundaryTags['top'],boundaryTags['bottom'],boundaryTags['sponge']]:
         return lambda x,t: 0.0
     if flag == boundaryTags['obst']:
         return lambda x,t: 0.0
@@ -84,12 +85,16 @@ diffusiveFluxBoundaryConditions = {0:{},
 
 def stress_u(x,flag):
     if flag not in [boundaryTags['left'],
-                    boundaryTags['right']]:
+                    boundaryTags['right'],
+                    boundaryTags['sponge']]:
         return 0.0
 
 def stress_v(x,flag):
-    if flag not in [boundaryTags['top'],
-                    boundaryTags['bottom']]:
+    if flag not in [boundaryTags['left'],
+                    boundaryTags['right'],
+                    boundaryTags['top'],
+                    boundaryTags['bottom'],
+                    boundaryTags['sponge']]:
         return 0.0
 
 stressFluxBoundaryConditions = {0:stress_u,
