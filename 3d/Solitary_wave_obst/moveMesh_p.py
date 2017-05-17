@@ -2,7 +2,7 @@ from proteus.default_p import *
 from proteus.mprans import MoveMesh
 import numpy as np
 from proteus import Context
-
+from tank import *
 ct = Context.get()
 domain = ct.domain
 nd = ct.domain.nd
