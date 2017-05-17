@@ -3,39 +3,40 @@ from proteus.mprans import SpatialTools as st
 from proteus import WaveTools as wt
 from math import *
 import numpy as np
-
+#from proteus.Gauges import Gauges
 
 
 opts=Context.Options([
     # still water
-    ("water_level", 0.25, "Height of free surface above seabed "),
-    ("water_depth", 0.25, " water depth"),
+    ("water_level", 0.5, "Height of free surface above seabed "),
+    ("water_depth", 0.5, " water depth"),
     # tank
     ("tank_dim", (1., 0.9, 0.75), "Dimensions of the tank"),
     ("tank_sponge", (1.,1.), "Length of relaxation zones zones (left, right)"),
     ("tank_BC", 'freeslip', "boundary type of the tank"),
-    ("gauge_output", False, "Places Gauges in tank (5 per wavelength)"),
+    ("gauge_output", True, "Places Gauges in tank (5 per wavelength)"),
     #obst
-    ("obst_dim",(0.3,0.2),"Dimensions of the oil tank,diameter and hight"),
+    ("obst_dim",(0.3,0.3),"Dimensions of the oil tank,diameter and hight"),
+    ("obst_thickness",0.1,"thickness of the cylindrical tank"),
     ("obst_center",(0.5,0.45),"obstacle center at bottom"),
     # waves
-    ("waves", False, "Generate waves (True/False)"),
+    ("waves",True, "Generate waves (True/False)"),
     ("wave_height", 0.1, "Height of the waves"),
     ("wave_dir", (1.,0.,0.), "Direction of the waves (from left boundary)"),
     ("g", (0.,0.,-9.81), "Direction of the waves (from left boundary)"),
-    ("trans",-0.2 ,"peak offset for solitary wave"),
+    ("trans",-5 ,"peak offset for solitary wave"),
     # mesh refinement
-    ("he", 0.1, "Set characteristic element size"),
+    ("he", 0.05, "Set characteristic element size"),
     # numerical options
     ("gen_mesh", True, "True: generate new mesh every time. False: do not generate mesh if file exists"),
-    ("T", 5.0, "Simulation time"),
+    ("T", 5.001, "Simulation time"),
     ("dt_init", 0.001, "Initial time step"),
     ("dt_fixed", None, "Fixed (maximum) time step"),
     ("timeIntegration", "backwardEuler", "Time integration scheme (backwardEuler/VBDF)"),
     ("cfl", 0.4 , "Target cfl"),
     ("nsave",  20, "Number of time steps to save per second"),
     ("useRANS", 0, "RANS model"),
-    ("movingDomain",True,"Switch on moving domain"),
+    ("movingDomain",False,"Switch on moving domain"),
     ("parallel", True ,"Run in parallel")])
 
 
@@ -278,16 +279,28 @@ if right:
 # ----- BOUNDARY CONDITIONS ----- #
 
 tank.BC['top'].setAtmosphere()
+
 if opts.tank_BC == 'noslip':
     tank.BC['front'].setNoSlip()
     tank.BC['back'].setNoSlip()
 if opts.tank_BC == 'freeslip':
     tank.BC['front'].setFreeSlip()
     tank.BC['back'].setFreeSlip()
+
 tank.BC['right'].setNoSlip()
 tank.BC['bottom'].setFreeSlip()
 tank.BC['sponge'].setNonMaterial()
 tank.BC['obst'].setFreeSlip()
+
+tank.BC['left'].setFixedNodes()
+tank.BC['right'].setFixedNodes()
+tank.BC['front'].setFixedNodes()
+tank.BC['back'].setFixedNodes()
+tank.BC['top'].setFixedNodes()
+tank.BC['bottom'].setFixedNodes()
+
+
+
 #for bc in tank.BC_list:
 #    bc.setFixedNodes()
 #for i in range(6):
@@ -299,10 +312,11 @@ st.assembleDomain(domain)
 
 FuncType='Lagrange'
 Order=1
-from SolidSolver import ElastoDynCylinder
+thick=opts.obst_thickness
+from SolidSolver import *
 class ElasticBar(AuxiliaryVariables.AV_base):
     #class ElasticBar():
-    def __init__(self,density=7800,E=207e9,nu=0.3,D=1.22,H=1.92,loc=np.array([10.,10.])):
+    def __init__(self,density=7800,E=207e9,nu=0.3,D=1.22,thick=0.1,H=1.92,loc=np.array([10.,10.])):
         self.dt_init=opts.dt_init
         self.he=opts.he
         self.E=E
@@ -310,10 +324,22 @@ class ElasticBar(AuxiliaryVariables.AV_base):
         self.loc=loc
         self.density=density
         self.D=D
+        self.thick=thick
         self.H=H
-        self.Solver=ElastoDynCylinder(E=E, nu=nu, g=opts.g, density=density, D=D, H=H, loc=loc)
-        #self.Solver.set_g(opts.g)
-        self.Solver.GenerateMesh(0.05,output=1)
+        self.first=True
+        self.ElastoDynSolver=ElastoDynCylinder(E=E, nu=nu, g=opts.g, density=density, D=D, thick=thick,H=H, loc=loc)
+        self.ElastoDynSolver.Gen_Mesh(he=0.1,output=1,FuncType=FuncType,Order=Order)
+        self.mesh=self.ElastoDynSolver.mesh
+        #self.Solver=ElastoDynCylinder(E=E, nu=nu, g=opts.g, density=density, D=D, H=H, loc=loc)
+        self.ElasticSolver=ElasicCylinder(E=E, nu=nu, g=opts.g, density=density, D=D, H=H, loc=loc)
+        self.ElasticSolver.Gen_Mesh(mesh=self.ElastoDynSolver.mesh)
+        self.ElasticSolver.Gen_Tfunc()
+        zero=('0.0','0.0','0.0')
+        bottom=lambda x: x[2] < 1e-12
+        BC={bottom:zero}
+
+        self.ElasticSolver.set_DBC(BC)
+        self.ElastoDynSolver.set_DBC(BC)
 
     def attachModel(self,model,ar):
         self.model=model
@@ -322,85 +348,121 @@ class ElasticBar(AuxiliaryVariables.AV_base):
         self.nd = model.levelModelList[-1].nSpace_global
         return self
     def calculate_init(self):
-        self.calculate()
-
-    def calculate(self):
-        try:
-            self.dt=self.model.levelModelList[-1].dt_last
-        except:
-            self.dt=self.dt_init
-        self.Solver.set_dt(self.dt)
-        self.Solver.set_functional(FuncType,Order)
-
-        #nExtEleBoundary =self.model.levelModelList[-1].mesh.nExteriorElementBoundaries_global
+        #solve elastic prob, BVP
         EleBoundaryMTInd=self.model.levelModelList[-1].mesh.elementBoundaryMaterialTypes
         ExtEleBoundaryArray=self.model.levelModelList[-1].mesh.exteriorElementBoundariesArray
-        #obstInd=[count if EleBoundaryMTInd[ind]==boundaryTags['obst'] for count, ind in enumerate(ExtEleBoundaryArray)]
-        obstInd=[count for count, ind in enumerate(ExtEleBoundaryArray) if EleBoundaryMTInd[ind]==boundaryTags['obst'] ]
-
+        obstInd=[count for count, ind in enumerate(ExtEleBoundaryArray) if EleBoundaryMTInd[ind]==boundaryTags['obst']]
 
         Force_x=self.model.levelModelList[-1].coefficients.forces_x[obstInd]
         Force_y=self.model.levelModelList[-1].coefficients.forces_y[obstInd]
         Force_z=self.model.levelModelList[-1].coefficients.forces_z[obstInd]
         Force_coords=self.model.levelModelList[-1].ebqe['x'][obstInd]
-        self.Solver.set_force(Force_x,Force_y,Force_z,Force_coords)
+        #Force_x[:]=0
+        #Force_y[:]=0
+        #Force_z[:]=0
+        self.ElasticSolver.set_force(Force_x,Force_y,Force_z,Force_coords)
 
-        self.Solver.set_variationalform()
+        self.ElasticSolver.set_variationalform()
 
-        zero=('0.0','0.0','0.0')
-        bottom=lambda x: x[2] < 1e-12
-        BC={bottom:zero}
-
-        self.Solver.set_DBC(BC)
-
-        self.Solver.solve()
-
-cylinder=ElasticBar(density=7800,E=207e9,nu=0.3,D=obst_diameter,H=obst_height,loc=np.array(obst_center))
+        self.ElasticSolver.solve()
+        self.u=self.ElasticSolver.u
 
 
+    def calculate(self):
+        EleBoundaryMTInd=self.model.levelModelList[-1].mesh.elementBoundaryMaterialTypes
+        ExtEleBoundaryArray=self.model.levelModelList[-1].mesh.exteriorElementBoundariesArray
+        obstInd=[count for count, ind in enumerate(ExtEleBoundaryArray) if EleBoundaryMTInd[ind]==boundaryTags['obst']]
+
+        Force_x=self.model.levelModelList[-1].coefficients.forces_x[obstInd]
+        Force_y=self.model.levelModelList[-1].coefficients.forces_y[obstInd]
+        Force_z=self.model.levelModelList[-1].coefficients.forces_z[obstInd]
+        #Force_x[:]=0
+        #Force_y[:]=0
+        #Force_z[:]=0
+        Force_coords=self.model.levelModelList[-1].ebqe['x'][obstInd]
+        try:
+            self.dt=self.model.levelModelList[-1].dt_last
+        except:
+            self.dt=self.dt_init
+        self.ElastoDynSolver.set_dt(self.dt)
+        self.ElastoDynSolver.set_force(Force_x,Force_y,Force_z,Force_coords)
+        if self.first:
+            self.ElastoDynSolver.Gen_Tfunc()
+            self.ElastoDynSolver.set_Init(self.u)
+            self.ElastoDynSolver.set_variationalform()
+            self.first=False
+
+        self.ElastoDynSolver.solve()
+
+        #print abs(self.ElastoDynSolver.u.vector().array()-self.ElasticSolver.u.vector()).max()
+
+cylinder=ElasticBar(density=7800,E=207e9,nu=0.3,D=obst_diameter,thick=thick,H=obst_height,loc=np.array(obst_center))
+
+#tank.BC['obst'].hx_dirichlet.uOfXT = lambda x,t:MoveMesh_hx(x,t)
+#tank.BC['obst'].hy_dirichlet.uOfXT = lambda x,t:MoveMesh_hy(x,t)
+#tank.BC['obst'].hz_dirichlet.uOfXT = lambda x,t:MoveMesh_hz(x,t)
+#
+#cylinder.Solver.ukx
+#
+#cylinder.Solver.ukx=lambda x,t:cylinder.Solver.uk(x)[0]
+#cylinder.Solver.uky=lambda x,t:cylinder.Solver.uk(x)[1]
+#cylinder.Solver.ukz=lambda x,t:cylinder.Solver.uk(x)[2]
 
 # ----- GAUGES ----- #
-
-if opts.gauge_output:
-    if left or right:
-        gauge_dx = tank_sponge[0]/10.
-    else:
-        gauge_dx = tank_dim[0]/10.
-    probes=np.linspace(-tank_sponge[0], tank_dim[0]+tank_sponge[1], (tank_sponge[0]+tank_dim[0]+tank_sponge[1])/gauge_dx+1)
-    PG=[]
-    PG2=[]
-    LIG = []
-    zProbes=waterLevel*0.5
-    for i in probes:
-        PG.append((i, zProbes, 0.),)
-        PG2.append((i, waterLevel, 0.),)
-        if i == probes[0]:
-            LIG.append(((i, 0.+0.0001, 0.),(i, tank_dim[1]-0.0001,0.)),)
-        elif i != probes[0]:
-            LIG.append(((i-0.0001, 0.+0.0001, 0.),(i-0.0001, tank_dim[1]-0.0001,0.)),)
-    tank.attachPointGauges(
+PG1=[tuple(x) for x in cylinder.mesh.coordinates()]
+tank.attachPointGauges(
         'twp',
-        gauges = ((('p',), PG),),
+        gauges = ((('p',), PG1),),
         activeTime=(0, opts.T),
         sampleRate=0,
         fileName='pointGauge_pressure.csv'
     )
-    tank.attachPointGauges(
-        'ls',
-        gauges = ((('phi',), PG),),
-        activeTime=(0, opts.T),
-        sampleRate=0,
-        fileName='pointGauge_levelset.csv'
-    )
 
-    tank.attachLineIntegralGauges(
-        'vof',
-        gauges=((('vof',), LIG),),
-        activeTime = (0., opts.T),
-        sampleRate = 0,
-        fileName = 'lineGauge.csv'
-    )
 
+#if opts.gauge_output:
+#    if left or right:
+#        gauge_dx = tank_sponge[0]/10.
+#    else:
+#        gauge_dx = tank_dim[0]/10.
+#    probes=np.linspace(-tank_sponge[0]-1, tank_dim[0]+tank_sponge[1], (tank_sponge[0]+tank_dim[0]+tank_sponge[1])/gauge_dx+1)
+#    PG=[]
+#    PG2=[]
+#    LIG = []
+#    zProbes=waterLevel*0.5
+#    for i in probes:
+#        PG.append((i, zProbes, 0.),)
+#        PG2.append((i, waterLevel, 0.),)
+#        if i == probes[0]:
+#            LIG.append(((i, 0.+0.0001, 0.),(i, tank_dim[1]-0.0001,0.)),)
+#        elif i != probes[0]:
+#            LIG.append(((i-0.0001, 0.+0.0001, 0.),(i-0.0001, tank_dim[1]-0.0001,0.)),)
+#    tank.attachPointGauges(
+#        'twp',
+#        gauges = ((('p',), PG),),
+#        activeTime=(0, opts.T),
+#        sampleRate=0,
+#        fileName='pointGauge_pressure.csv'
+#    )
+#    tank.attachPointGauges(
+#        'ls',
+#        gauges = ((('phi',), PG),),
+#        activeTime=(0, opts.T),
+#        sampleRate=0,
+#        fileName='pointGauge_levelset.csv'
+#    )
+#
+#    tank.attachLineIntegralGauges(
+#        'vof',
+#        gauges=((('vof',), LIG),),
+#        activeTime = (0., opts.T),
+#        sampleRate = 0,
+#        fileName = 'lineGauge.csv'
+#    )
+#pressure_gauge=Gauges(('p',),
+#                      activeTime=(0, opts.T),
+#                      sampleRate=0,
+#                      points=cylinder.mesh.coordinates().tolist()
+#                      )
 # ----- ASSEMBLE DOMAIN ----- #
 
 domain.MeshOptions.genMesh = opts.gen_mesh
@@ -537,7 +599,7 @@ if useMetrics:
     vof_sc_beta = sc_beta
     rd_shockCapturingFactor  =sc
     rd_lag_shockCapturing = False
-    epsFact_density    = 3.
+    epsFact_density    = 0.2
     epsFact_viscosity  = epsFact_curvature  = epsFact_vof = epsFact_consrv_heaviside = epsFact_consrv_dirac = epsFact_density
     epsFact_redistance = 0.33
     epsFact_consrv_diffusion = epsFact_consrv_diffusion
