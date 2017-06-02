@@ -25,7 +25,7 @@ opts=Context.Options([
     ("g", (0.,0.,-9.81), "Direction of the waves (from left boundary)"),
     ("trans",-6. ,"peak offset for solitary wave"),
     # mesh refinement
-    ("he", 0.3, "Set characteristic element size"),
+    ("he", 0.035, "Set characteristic element size"),
     # numerical options
     ("gen_mesh",True,"True: generate new mesh every time. False: do not generate mesh if file exists"),
     ("T", 10.001, "Simulation time"),
@@ -220,13 +220,13 @@ for fN in range(len(obst_bottom_facet)):
     facetHoles.append([])
 holes=[[obst_center[0],obst_center[1]-radius*0.5,obst_height/2]]
 
-print len(vertices)
-print len(vertexFlags)
-
-print facets
-print len(facets)
-print facetFlags
-print len(facetFlags)
+#print len(vertices)
+#print len(vertexFlags)
+#
+#print facets
+#print len(facets)
+#print facetFlags
+#print len(facetFlags)
 #print facetHoles
 #print len(facetHoles)
 
