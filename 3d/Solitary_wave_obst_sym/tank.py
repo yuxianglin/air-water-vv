@@ -214,8 +214,9 @@ facetFlags.append(boundaryTags['obst'])#tank bottom
 facetHoles.append([])
 facetHoles.append([])
 #sides of cylinder obst
-for fN in range(len(obst_bottom_facet)):
-    facets.append([[obst_bottom_facet[fN-1],obst_bottom_facet[fN],obst_top_facet[fN],obst_top_facet[fN-1]]])
+for fN in range(len(obst_bottom_facet)-1):
+    #facets.append([[obst_bottom_facet[fN-1],obst_bottom_facet[fN],obst_top_facet[fN],obst_top_facet[fN-1]]])
+    facets.append([[obst_bottom_facet[fN],obst_bottom_facet[fN+1],obst_top_facet[fN+1],obst_top_facet[fN]]])
     facetFlags.append(boundaryTags['obst'])
     facetHoles.append([])
 holes=[[obst_center[0],obst_center[1]-radius*0.5,obst_height/2]]
