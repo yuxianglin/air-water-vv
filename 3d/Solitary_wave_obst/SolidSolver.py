@@ -152,7 +152,7 @@ class ElastoDynCylinder(ElastoDynBody):
 
 class _traction(Expression):
     def __init__(self,force_coords,force_x,force_y,force_z):
-        super(_traction,self).__init__(self)
+        #super(_traction,self).__init__(self)
         from scipy import spatial
         self.force_coords=force_coords
         nObstEleBoundary=force_coords.shape[0]
