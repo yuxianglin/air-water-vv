@@ -122,10 +122,10 @@ for cb in range(points_on_circle+1):
 	vertices.append([obst_center[0]+radius*cos(float(cb)/float(points_on_circle)*1.0*pi),
 		             obst_center[1]-radius*sin(float(cb)/float(points_on_circle)*1.0*pi),obst_height])
 	vertexFlags.append(boundaryTags['obst'])
-vertices.append([obst_center[0]+radius,obst_height,L[1]/2.])
-vertices.append([obst_center[0]-radius,obst_height,L[1]/2.])
-vertexFlags.append(boundaryTags['back'])
-vertexFlags.append(boundaryTags['back'])
+#vertices.append([obst_center[0]+radius,obst_height,L[1]/2.])
+#vertices.append([obst_center[0]-radius,obst_height,L[1]/2.])
+#vertexFlags.append(boundaryTags['back'])
+#vertexFlags.append(boundaryTags['back'])
 #print vertices
 #print vertexFlags
 
@@ -219,7 +219,8 @@ for fN in range(len(obst_bottom_facet)-1):
     facets.append([[obst_bottom_facet[fN],obst_bottom_facet[fN+1],obst_top_facet[fN+1],obst_top_facet[fN]]])
     facetFlags.append(boundaryTags['obst'])
     facetHoles.append([])
-holes=[[obst_center[0],obst_center[1]-radius*0.5,obst_height/2]]
+#holes=[[obst_center[0],obst_center[1]-radius*0.5,obst_height/2]]
+holes=[]
 
 #print len(vertices)
 #print len(vertexFlags)
